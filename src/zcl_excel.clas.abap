@@ -36,6 +36,7 @@ CLASS zcl_excel DEFINITION
     METHODS add_new_style
       IMPORTING
         !ip_guid        TYPE zexcel_cell_style OPTIONAL
+        !io_clone_of    TYPE REF TO zcl_excel_style OPTIONAL
       RETURNING
         VALUE(eo_style) TYPE REF TO zcl_excel_style .
     METHODS add_new_worksheet
@@ -229,6 +230,7 @@ CLASS zcl_excel IMPLEMENTATION.
 * Create default style
     CREATE OBJECT eo_style
       EXPORTING
+        io_clone_of = io_clone_of
         ip_guid = ip_guid.
     styles->add( eo_style ).
 
@@ -265,7 +267,7 @@ CLASS zcl_excel IMPLEMENTATION.
       READ TABLE me->t_stylemapping2 ASSIGNING <style2> WITH TABLE KEY guid = <style1>-guid.
       CHECK sy-subrc = 0.  " Should always be true since these tables are being filled parallel
 
-      style = me->add_new_style( <style1>-guid ).
+      style = me->add_new_style( ip_guid = <style1>-guid ).
 
       zcl_excel_common=>recursive_struct_to_class( EXPORTING i_source  = <style1>-complete_style
                                                              i_sourcex = <style1>-complete_stylex
