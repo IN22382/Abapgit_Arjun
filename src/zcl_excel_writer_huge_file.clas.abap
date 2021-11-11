@@ -321,6 +321,8 @@ CLASS zcl_excel_writer_huge_file IMPLEMENTATION.
       <mergecell>     TYPE lty_mergecell,
       <table>         TYPE lty_table.
 
+    DATA lt_sheet_content TYPE zexcel_t_cell_data.
+
 **********************************************************************
 * STEP 1: Fill root node
 *
@@ -558,56 +560,77 @@ CLASS zcl_excel_writer_huge_file IMPLEMENTATION.
     CONCATENATE '1:' lv_spans INTO lv_spans.
     CONDENSE lv_spans.
 
+****Commented out the below LOOP statement because it takes exponentially too long (18 to 24+ times) to process for large files
+****Some functionality will be limited such as 1) row visibility 2) Row height 3) collapsed row 4) row outline 5) row style
+*  LOOP AT io_worksheet->sheet_content ASSIGNING <sheet_content>.
+*
+*    IF ls_last_row-cell_row NE <sheet_content>-cell_row.
+**
+**     Fill row information.
+**     Cell data is filled in by callback GET_CELLS called from transformation
+**
+*      lv_index = sy-tabix.
+*      APPEND INITIAL LINE TO l_worksheet-rows ASSIGNING <row>.
+*      <row>-row   = <sheet_content>-cell_row.
+*      <row>-index = lv_index.
+*      <row>-spans = lv_spans.
+*
+**
+**     Row dimension attributes
+**
+*      lo_row = io_worksheet->get_row( <sheet_content>-cell_row ).
+*      IF lo_row->get_visible( ) = abap_false.
+*        <row>-hidden = lc_true.
+*      ENDIF.
+*
+*      IF lo_row->get_row_height( ) >= 0.
+*        <row>-customheight = lc_one.
+*        <row>-height       = lo_row->get_row_height( ).
+*      ENDIF.
+*
+**
+**     Collapsed
+**
+*      IF lo_row->get_collapsed( ) = abap_true.
+*        <row>-collapsed = lc_true.
+*      ENDIF.
+*
+**
+**     Outline level
+**
+*      <row>-outlinelevel = lo_row->get_outline_level( ).
+*
+**
+**     Style
+**
+*      <row>-style = lo_row->get_xf_index( ).
+*      IF <row>-style <> 0.
+*        <row>-customformat = lc_one.
+*      ENDIF.
+*    ENDIF.
+*
+*    ls_last_row = <sheet_content>.
+*  ENDLOOP.
+
+****Added for LARGE_FILE to speed up large files
+    lt_sheet_content[] = io_worksheet->sheet_content.
+    DELETE ADJACENT DUPLICATES FROM lt_sheet_content
+     COMPARING cell_row.
     LOOP AT io_worksheet->sheet_content ASSIGNING <sheet_content>.
-
-      IF ls_last_row-cell_row NE <sheet_content>-cell_row.
-*
-*     Fill row information.
-*     Cell data is filled in by callback GET_CELLS called from transformation
-*
-        lv_index = sy-tabix.
-        APPEND INITIAL LINE TO l_worksheet-rows ASSIGNING <row>.
-        <row>-row   = <sheet_content>-cell_row.
-        <row>-index = lv_index.
-        <row>-spans = lv_spans.
-
-*
-*     Row dimension attributes
-*
+      lv_index = sy-tabix.
+      APPEND INITIAL LINE TO l_worksheet-rows ASSIGNING <row>.
+      <row>-row   = <sheet_content>-cell_row.
+      <row>-index = lv_index.
+      <row>-spans = lv_spans.
+      IF lv_index EQ 1.
         lo_row = io_worksheet->get_row( <sheet_content>-cell_row ).
-        IF lo_row->get_visible( ) = abap_false.
-          <row>-hidden = lc_true.
-        ENDIF.
-
-        IF lo_row->get_row_height( ) >= 0.
-          <row>-customheight = lc_one.
-          <row>-height       = lo_row->get_row_height( ).
-        ENDIF.
-
-*
-*     Collapsed
-*
-        IF lo_row->get_collapsed( ) = abap_true.
-          <row>-collapsed = lc_true.
-        ENDIF.
-
-*
-*     Outline level
-*
-        <row>-outlinelevel = lo_row->get_outline_level( ).
-
-*
-*     Style
-*
         <row>-style = lo_row->get_xf_index( ).
         IF <row>-style <> 0.
           <row>-customformat = lc_one.
         ENDIF.
       ENDIF.
-
-      ls_last_row = <sheet_content>.
     ENDLOOP.
-
+    CLEAR lt_sheet_content[].
 *
 * Merged cells
 *
